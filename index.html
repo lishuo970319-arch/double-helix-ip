@@ -721,9 +721,13 @@ function ccZh(cc, fb) {
 }
 function maskIpStr(s) {
   if (!ipMaskOn || !s) return s;
-  return String(s)
-    .replace(/\b(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}\b/g, '$1.$2.*.*')
-    .replace(/\b([0-9a-fA-F]{1,4}):([0-9a-fA-F]{1,4}):[0-9a-fA-F:.]{2,}\b/g, '$1:$2:*:*');
+  let out = String(s)
+    .replace(/\b(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}\b/g, '$1.*.*.*')
+    .replace(/\b([0-9a-fA-F]{1,4}):([0-9a-fA-F]{1,4}):[0-9a-fA-F:.]{2,}\b/g, '$1:*:*:*');
+  if (out.includes('中国')) {
+    out = out.replace(/中国[\s,，·]+[^\s(（]+(?:[\s,，·]+[^\s(（]+)*/g, '中国 · **省 · **市');
+  }
+  return out;
 }
 function fmtIp(ip) { return esc(maskIpStr(ip)); }
 function fmtTs(ts) {
@@ -1146,7 +1150,7 @@ function buildVectorMapHtml(rec) {
         <text x="${(vw/65).toFixed(2)}" y="${(vw/190).toFixed(2)}" fill="#10b981" font-size="${fs}" font-weight="800" style="paint-order:stroke;stroke:#090d16;stroke-width:${(vw/190).toFixed(2)}px;">${esc(cityLabel)}</text>
       </g>
     </svg>
-    <div class="map-coord-badge mono">📍 ${lat.toFixed(4)}, ${lon.toFixed(4)}${esc(maxKmTxt)}</div>
+    <div class="map-coord-badge mono">📍 ${ipMaskOn ? lat.toFixed(1) + '*, ' + lon.toFixed(1) + '*' : lat.toFixed(4) + ', ' + lon.toFixed(4)}${esc(maxKmTxt)}</div>
     <div class="map-legend">
       <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:4px;"></i>主定位</span>
       ${gs.length > 1 ? `<span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#8b5cf6;margin-right:4px;"></i>其余数据源 (${gs.length-1})</span>` : ''}
@@ -1669,8 +1673,8 @@ async function renderReport(rec) {
                 <span class="pill ${rec.is_exit_ip ? 'blue' : 'muted'}">${rec.is_exit_ip ? '本机/代理实测出口' : '单 IP 档案查询'}</span>
               </div>
               <div style="font-size:14px;font-weight:700;margin-top:6px;">
-                ${esc([ccZh(p.country_code, p.country_name), p.region, p.city].filter(Boolean).join(' · '))}
-                <span class="mono" style="color:var(--muted);font-weight:500;margin-left:8px;">邮编 ${esc(p.postal || '-')} · 时区 ${esc(p.timezone || '-')}</span>
+                ${fmtIp([ccZh(p.country_code, p.country_name), p.region, p.city].filter(Boolean).join(' · '))}
+                <span class="mono" style="color:var(--muted);font-weight:500;margin-left:8px;">邮编 ${ipMaskOn ? '*****' : esc(p.postal || '-')} · 时区 ${esc(p.timezone || '-')}</span>
               </div>
             </div>
 
@@ -1785,7 +1789,7 @@ async function renderReport(rec) {
           <div class="tri-card">
             <div class="tri-lbl"><span>🏠 你家宽带原本直连 IP</span><span class="pill muted">国内参照</span></div>
             <div class="tri-ip mono">${fmtIp(cnDirect?.ip || (rec.is_exit_ip ? '全局代理模式' : '需出口模式实测'))}</div>
-            <div class="tri-geo">${esc(cnDirect?.location || '用来对比代理有没有真正接管流量')}</div>
+            <div class="tri-geo">${fmtIp(cnDirect?.location || '用来对比代理有没有真正接管流量')}</div>
           </div>
           <div class="tri-card">
             <div class="tri-lbl"><span>☁️ 访问普通外网出口</span><span class="pill blue">${esc(cfTr?.colo || 'CF')}</span></div>
@@ -1955,11 +1959,11 @@ async function renderReport(rec) {
               <td>${esc(g.region)}</td>
               <td>${esc(g.city)}</td>
               <td class="mono" style="font-size:11.5px;">${esc(g.timezone)}</td>
-              <td class="mono" style="font-size:11.5px;">${esc(g.coords)}</td>
+              <td class="mono" style="font-size:11.5px;">${esc(ipMaskOn && g.coords && g.coords !== '—' ? String(g.coords).replace(/(-?\d+\.\d)\d+/g, '$1*') : g.coords)}</td>
               <td style="font-size:12px;">${esc(g.isp_org)}</td>
               <td>${g.usage_type.includes('住宅') ? `<span class="pill good">${esc(g.usage_type)}</span>` : (g.usage_type.includes('机房') ? `<span class="pill bad">${esc(g.usage_type)}</span>` : esc(g.usage_type))}</td>
               <td>${esc(g.company_type)}</td>
-              <td class="mono" style="font-size:11.5px;">${esc(g.native_risk)}</td>
+              <td class="mono" style="font-size:11.5px;">${esc(String(g.native_risk || '—').replace(/\{'iata':\s*'([^']+)'[^}]*'city':\s*'([^']+)'[^}]*\}/, '$1 ($2)'))}</td>
             </tr>`).join('')}
           </tbody>
         </table></div>
@@ -2018,7 +2022,7 @@ async function renderReport(rec) {
 
         <div class="sub-h"><span>🧮 IP 子网与十进制计算器明细（对应 CheckIP 网段工具）</span></div>
         <div class="kv-grid">
-          <div class="kv"><div class="k">IP 十进制整数</div><div class="v mono">${esc(subCalc.ip_decimal || '—')}</div><div class="s">CIDR: ${fmtIp(subCalc.cidr || '—')}</div></div>
+          <div class="kv"><div class="k">IP 十进制整数</div><div class="v mono">${esc(ipMaskOn && subCalc.ip_decimal ? String(subCalc.ip_decimal).slice(0, 4) + '******' : (subCalc.ip_decimal || '—'))}</div><div class="s">CIDR: ${fmtIp(subCalc.cidr || '—')}</div></div>
           <div class="kv"><div class="k">子网掩码 / 反掩码</div><div class="v mono">${esc(subCalc.netmask || 'IPv6')}</div><div class="s mono">反掩码: ${esc(subCalc.wildcard || '—')}</div></div>
           <div class="kv"><div class="k">网络地址 / 广播地址</div><div class="v mono">${fmtIp(subCalc.network_addr || '—')}</div><div class="s mono">广播: ${fmtIp(subCalc.broadcast_addr || '—')}</div></div>
           <div class="kv"><div class="k">RDAP 注册主体 (${esc(rdap.handle || '-')})</div><div class="v">${esc(rdap.registrant || rdap.name || '—')}</div><div class="s mono">${fmtIp(subCalc.rdap_range || '—')}</div></div>
@@ -2106,7 +2110,7 @@ async function renderReport(rec) {
         <div class="filter-tabs" id="rawTabBar">
           ${srcKeys.map(k => `<button class="ftab ${k === activeRawKey ? 'active' : ''}" onclick="switchRawTab('${esc(k)}')">${esc(k)}</button>`).join('')}
         </div>
-        <pre class="json-view mono" id="rawJsonPre">${esc(activeRawKey ? JSON.stringify(rawSources[activeRawKey], null, 2) : '{}')}</pre>
+        <pre class="json-view mono" id="rawJsonPre">${fmtIp(activeRawKey ? JSON.stringify(rawSources[activeRawKey], null, 2) : '{}')}</pre>
       </div>
     </section>
   `;
@@ -2154,7 +2158,7 @@ function switchRawTab(key) {
   if (!rec || !rec.raw_sources) return;
   activeRawKey = key;
   document.querySelectorAll('#rawTabBar .ftab').forEach(b => b.classList.toggle('active', b.textContent === key));
-  document.getElementById('rawJsonPre').textContent = JSON.stringify(rec.raw_sources[key], null, 2);
+  document.getElementById('rawJsonPre').textContent = maskIpStr(JSON.stringify(rec.raw_sources[key], null, 2));
 }
 function copyCurrentRaw() {
   const txt = document.getElementById('rawJsonPre')?.textContent || '';
