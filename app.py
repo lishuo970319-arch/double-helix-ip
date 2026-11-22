@@ -1740,7 +1740,7 @@ if __name__ == "__main__":
             except Exception:
                 pass
     if os.name == "nt":
-        os.system("title IP 全景体检台")
+        os.system("title 双螺旋究极缝合测ip（ip好纯我好爱）")
     preferred_port = 18668
     if "--port" in sys.argv:
         try:
@@ -1751,7 +1751,7 @@ if __name__ == "__main__":
     url = f"http://127.0.0.1:{port}"
     srv = ThreadedHTTPServer(("127.0.0.1", port), Handler)
     print("============================================================")
-    print("   IP 全景体检台 已启动！")
+    print("   双螺旋究极缝合测ip（ip好纯我好爱） 已启动！")
     print(f"   浏览器访问地址：{url}")
     print("   提示：使用期间请勿关闭此黑框窗口；关闭窗口即退出程序。")
     print("============================================================", flush=True)
