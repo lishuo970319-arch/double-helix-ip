@@ -1,0 +1,21 @@
+# Virtual environments
+venv/
+.venv/
+ENV/
+
+# PyInstaller build artifacts & local binaries
+build/
+dist/
+*.spec
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# User local scan history & runtime configs (Privacy protection)
+ip_check_history.json
+history.json
+*.log
+.env
+.DS_Store
+Thumbs.db
